@@ -285,14 +285,14 @@ def plot_booming_jobs(booming_df, n=10):
     plt.tight_layout()
     return fig
 
-def identify_booming_jobs(df, predictions, threshold_percentile=75):
+def identify_booming_jobs(df, predictions, threshold_percentile=70):
     """
     Identify booming jobs based on prediction scores
     
     Args:
         df: Original dataframe
         predictions: Model predictions
-        threshold_percentile: Percentile threshold for "booming" (default: top 25%)
+        threshold_percentile: Percentile threshold for "booming" (default: top 30%)
     
     Returns:
         DataFrame with booming jobs ranked by average prediction score
@@ -303,7 +303,7 @@ def identify_booming_jobs(df, predictions, threshold_percentile=75):
     result_df = df.copy()
     result_df['prediction'] = predictions
     
-    # Calculate threshold
+    # Calculate threshold - more lenient now
     threshold = np.percentile(predictions, threshold_percentile)
     
     # Group by job title and calculate statistics
@@ -313,11 +313,18 @@ def identify_booming_jobs(df, predictions, threshold_percentile=75):
     
     job_stats.columns = ['job_title', 'avg_prediction', 'count', 'std_prediction']
     
-    # Filter jobs above threshold and with sufficient samples
+    # More lenient filtering:
+    # - Lower threshold (70th percentile instead of 75th)
+    # - Only require 2 occurrences instead of 3
+    # - Only filter if prediction is positive (if applicable)
     booming = job_stats[
         (job_stats['avg_prediction'] >= threshold) & 
-        (job_stats['count'] >= 3)  # At least 3 occurrences
+        (job_stats['count'] >= 2)  # At least 2 occurrences
     ].sort_values('avg_prediction', ascending=False)
+    
+    # If still no results, just return top jobs by prediction
+    if len(booming) == 0:
+        booming = job_stats.nlargest(10, 'avg_prediction')
     
     return booming
 
@@ -670,8 +677,9 @@ def main():
                     # BOOMING JOBS ANALYSIS
                     st.markdown("---")
                     st.subheader("🔥 Booming Jobs Analysis")
+                    st.write("Identifying jobs with highest predicted values (top 30% threshold)")
                     
-                    booming_df = identify_booming_jobs(filtered_df, predictions, threshold_percentile=75)
+                    booming_df = identify_booming_jobs(filtered_df, predictions, threshold_percentile=70)
                     
                     if booming_df is not None and len(booming_df) > 0:
                         st.success(f"🚀 Found **{len(booming_df)}** booming job roles!")
@@ -680,7 +688,7 @@ def main():
                         
                         with boom_col1:
                             # Plot booming jobs
-                            fig_boom = plot_booming_jobs(booming_df, n=10)
+                            fig_boom = plot_booming_jobs(booming_df, n=min(10, len(booming_df)))
                             if fig_boom:
                                 st.pyplot(fig_boom)
                                 plt.close(fig_boom)
@@ -695,29 +703,38 @@ def main():
                                 )
                         
                         # Show full booming jobs table
-                        st.markdown("### 📋 All Booming Jobs")
-                        st.dataframe(
-                            booming_df[['job_title', 'avg_prediction', 'count']].rename(columns={
-                                'job_title': 'Job Title',
-                                'avg_prediction': 'Trend Score',
-                                'count': 'Job Count'
-                            }),
-                            width='stretch'
-                        )
+                        st.markdown("### 📋 All Booming Jobs (Sorted by Score)")
+                        booming_display = booming_df[['job_title', 'avg_prediction', 'count']].copy()
+                        booming_display.columns = ['Job Title', 'Trend Score', 'Job Count']
+                        booming_display['Rank'] = range(1, len(booming_display) + 1)
+                        booming_display = booming_display[['Rank', 'Job Title', 'Trend Score', 'Job Count']]
+                        st.dataframe(booming_display, width='stretch')
                     else:
-                        st.info("ℹ️ No significant booming jobs detected in current data")
+                        st.info("ℹ️ No jobs meet the booming criteria. Showing top 10 by prediction score:")
+                        # Show top jobs anyway
+                        top_jobs = filtered_df.copy()
+                        top_jobs['prediction'] = predictions
+                        top_summary = top_jobs.groupby('job_title')['prediction'].mean().reset_index()
+                        top_summary.columns = ['Job Title', 'Avg Score']
+                        top_summary = top_summary.sort_values('Avg Score', ascending=False).head(10)
+                        top_summary['Rank'] = range(1, len(top_summary) + 1)
+                        top_summary = top_summary[['Rank', 'Job Title', 'Avg Score']]
+                        st.dataframe(top_summary, width='stretch')
                     
-                    # Show prediction results
+                    # Show prediction results (SORTED)
                     st.markdown("---")
-                    st.subheader("📋 All Predictions")
+                    st.subheader("📋 All Predictions (Sorted by Score)")
+                    
+                    # Sort result_df by prediction
+                    result_df_sorted = result_df.sort_values('Prediction', ascending=False)
                     
                     display_cols = ["Prediction"]
-                    if 'job_title' in result_df.columns:
+                    if 'job_title' in result_df_sorted.columns:
                         display_cols.insert(0, "job_title")
-                    if 'company_location' in result_df.columns:
+                    if 'company_location' in result_df_sorted.columns:
                         display_cols.insert(1, "company_location")
                     
-                    display_df = result_df[display_cols].head(100).copy()
+                    display_df = result_df_sorted[display_cols].head(100).copy()
                     for col in display_df.select_dtypes(include=['object']).columns:
                         display_df[col] = display_df[col].astype(str)
                     
@@ -827,18 +844,18 @@ print(feature_names)
             # BOOMING JOBS ANALYSIS
             st.markdown("---")
             st.subheader("🔥 Booming Jobs Analysis")
-            st.write("Jobs with the highest predicted trend scores are considered 'booming' - indicating strong growth potential.")
+            st.write("Identifying jobs with highest predicted values (top 30% threshold)")
             
-            booming_df = identify_booming_jobs(filtered_df, predictions, threshold_percentile=75)
+            booming_df = identify_booming_jobs(filtered_df, predictions, threshold_percentile=70)
             
             if booming_df is not None and len(booming_df) > 0:
-                st.success(f"🚀 Found **{len(booming_df)}** booming job roles in the top 25% prediction range!")
+                st.success(f"🚀 Found **{len(booming_df)}** booming job roles in the top 30% prediction range!")
                 
                 boom_col1, boom_col2 = st.columns([2, 1])
                 
                 with boom_col1:
                     # Plot booming jobs
-                    fig_boom = plot_booming_jobs(booming_df, n=10)
+                    fig_boom = plot_booming_jobs(booming_df, n=min(10, len(booming_df)))
                     if fig_boom:
                         st.pyplot(fig_boom)
                         plt.close(fig_boom)
@@ -853,32 +870,47 @@ print(feature_names)
                         )
                 
                 # Show full booming jobs table
-                with st.expander("📋 View All Booming Jobs", expanded=False):
+                with st.expander("📋 View All Booming Jobs (Sorted by Score)", expanded=False):
                     display_boom = booming_df[['job_title', 'avg_prediction', 'count', 'std_prediction']].copy()
                     display_boom.columns = ['Job Title', 'Avg Trend Score', 'Job Count', 'Score Std Dev']
+                    display_boom['Rank'] = range(1, len(display_boom) + 1)
+                    display_boom = display_boom[['Rank', 'Job Title', 'Avg Trend Score', 'Job Count', 'Score Std Dev']]
                     st.dataframe(display_boom, width='stretch')
             else:
-                st.info("ℹ️ No significant booming jobs detected. Try adjusting filters or using more data.")
+                st.info("ℹ️ No jobs meet strict booming criteria. Showing top 10 jobs by prediction score:")
+                # Show top jobs anyway
+                top_jobs = filtered_df.copy()
+                top_jobs['prediction'] = predictions
+                top_summary = top_jobs.groupby('job_title')['prediction'].mean().reset_index()
+                top_summary.columns = ['Job Title', 'Avg Score']
+                top_summary = top_summary.sort_values('Avg Score', ascending=False).head(10)
+                top_summary['Rank'] = range(1, len(top_summary) + 1)
+                top_summary = top_summary[['Rank', 'Job Title', 'Avg Score']]
+                st.dataframe(top_summary, width='stretch')
 
-            # Display results
+            # Display results (SORTED)
             st.markdown("---")
-            st.subheader("📋 Prediction Results")
+            st.subheader("📋 Prediction Results (Sorted by Score)")
+            
+            # Sort result_df by prediction descending
+            result_df_sorted = result_df.sort_values('Prediction', ascending=False).reset_index(drop=True)
             
             # Select display columns
             display_cols = ["Prediction"]
-            if 'job_title' in result_df.columns:
+            if 'job_title' in result_df_sorted.columns:
                 display_cols.insert(0, "job_title")
-            if 'company_location' in result_df.columns:
+            if 'company_location' in result_df_sorted.columns:
                 display_cols.insert(1, "company_location")
-            if 'salary_usd' in result_df.columns:
+            if 'salary_usd' in result_df_sorted.columns:
                 display_cols.append("salary_usd")
             
             # Convert object columns to string to avoid Arrow errors
-            display_df = result_df[display_cols].head(100).copy()
+            display_df = result_df_sorted[display_cols].head(100).copy()
             for col in display_df.select_dtypes(include=['object']).columns:
                 display_df[col] = display_df[col].astype(str)
             
             st.dataframe(display_df, width='stretch')
+            st.caption("📊 Showing top 100 predictions sorted by trend score (highest to lowest)")
 
             # Statistics
             st.subheader("📊 Prediction Statistics")
