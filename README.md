@@ -2,6 +2,10 @@
 
 An end-to-end machine learning project that analyzes global job market data and predicts job trend scores to identify roles and regions with strong growth potential. The project includes data analysis, multiple trained ML models, and an interactive Streamlit dashboard for visualization and predictions.
 
+🧾 Detailed Project Report: Link Needed
+🖥️ Streamlit Dashboard: Link Needed
+📽️ Demo & Presentation Slides: Link Needed
+
 📌 Project Overview
 
 The job market is dynamic and varies across countries, roles, and experience levels. This project aims to analyze historical job postings data and predict job trend strength, helping users understand which roles are growing and where.
