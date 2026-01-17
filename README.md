@@ -2,7 +2,7 @@
 
 🧾 **Detailed Project Report:** [View Report](https://docs.google.com/document/d/1BtuqQrqJNHSOjdRrQX0R7A0hy3FjvijYIVen_lpUpvE/edit?usp=sharing)  
 🖥️ **Streamlit Dashboard:** [Launch Dashboard](https://field-experiments-ai-for-job-trend-analysis-organiza-app-8wmlxp.streamlit.app/)  
-📽️ **Demo & Presentation Slides:** [Watch Demo](#)
+📽️ **Demo & Presentation Slides:** [Watch Demo](https://drive.google.com/file/d/1gto5HfDJBSDyuZv03ouL0bGNcCilV-54/view?usp=sharing)
 
 ---
 
